@@ -1656,10 +1656,11 @@ class TestDuckDB(Validator):
                 "postgres": "SELECT CAST(EXTRACT(year FROM AGE(DATE_TRUNC('MONTH', CAST(CAST('2026-03-01' AS DATE) AS TIMESTAMP)), DATE_TRUNC('MONTH', CAST(CAST('2026-01-31' AS DATE) AS TIMESTAMP)))) * 12 + EXTRACT(month FROM AGE(DATE_TRUNC('MONTH', CAST(CAST('2026-03-01' AS DATE) AS TIMESTAMP)), DATE_TRUNC('MONTH', CAST(CAST('2026-01-31' AS DATE) AS TIMESTAMP)))) AS BIGINT)",
             },
         )
-        self.assertIsNone(
+        self.assertIs(
             parse_one("SELECT DATE_DIFF('WEEK', a, b)", read="duckdb")
             .find(exp.DateDiff)
-            .args.get("date_part_boundary")
+            .args.get("date_part_boundary"),
+            False,
         )
         self.validate_all(
             "WITH 'x' AS (SELECT 1) SELECT * FROM x",

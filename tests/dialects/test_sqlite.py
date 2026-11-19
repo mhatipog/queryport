@@ -914,9 +914,10 @@ class TestSQLite(Validator):
                 "duckdb": "SELECT INTERVAL 1 DAY + d FROM t",
             },
         )
-        self.validate_all(
-            "SELECT DATE(d, '-1 MONTH') FROM t",
-            read={"mysql": "SELECT d - INTERVAL 1 MONTH FROM t"},
+        self.validate_identity("SELECT DATE(d, '-1 MONTH') FROM t")
+        self.assertIn(
+            "'start of month'",
+            parse_one("SELECT d - INTERVAL 1 MONTH", "mysql").sql("sqlite"),
         )
         self.validate_all(
             "SELECT DATETIME(d, '-2 HOURS') FROM t",

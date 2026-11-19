@@ -63,8 +63,10 @@ def _build_date_diff(args: list) -> exp.Expr:
     # DATE_DIFF counts the unit boundaries crossed, e.g. one month from 2026-01-31 to 2026-02-01,
     # except for WEEK, which counts whole 7-day spans
     date_part_boundary = (
-        isinstance(unit, (exp.Literal, exp.Var)) and unit.name.upper() not in ("WEEK", "WEEKS", "W")
-    ) or None
+        unit.name.upper() not in ("WEEK", "WEEKS", "W")
+        if isinstance(unit, (exp.Literal, exp.Var))
+        else None
+    )
 
     return exp.DateDiff(
         this=seq_get(args, 2),

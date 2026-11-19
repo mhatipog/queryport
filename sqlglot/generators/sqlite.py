@@ -351,7 +351,7 @@ class SQLiteGenerator(generator.Generator):
             modifier = modifier * 7
             unit = exp.var("DAY")
 
-        if isinstance(expression, (exp.DateAdd, exp.DateSub)) and unit_name in ("MONTH", "YEAR"):
+        if isinstance(expression, (exp.DateAdd, exp.DateSub, exp.Add, exp.Sub)) and unit_name in ("MONTH", "YEAR"):
             month_count = (
                 modifier.name if isinstance(modifier, exp.Literal) and modifier.is_string
                 else self.sql(modifier)
@@ -472,6 +472,68 @@ class SQLiteGenerator(generator.Generator):
 
         return sql
 
+    def extract_sql(self, expression: exp.Extract) -> str:
+        unit = expression.this.name.upper()
+        value = self.sql(expression, "expression")
+        mapping = {
+            "YEAR": "%Y",
+            "MONTH": "%m",
+            "DAY": "%d",
+            "DAYOFMONTH": "%d",
+            "DAYOFYEAR": "%j",
+            "DOY": "%j",
+            "HOUR": "%H",
+            "MINUTE": "%M",
+            "SECOND": "%S",
+            "DOW": "%w",
+            "DAYOFWEEK": "%w",
+        }
+        if unit in mapping:
+            return f"CAST(STRFTIME('{mapping[unit]}', {value}) AS INTEGER)"
+        if unit == "QUARTER":
+            month = f"CAST(STRFTIME('%m', {value}) AS INTEGER)"
+            return f"CAST(({month} + 2) / 3 AS INTEGER)"
+        self.unsupported(f"SQLite cannot safely extract '{unit}'")
+        return super().extract_sql(expression)
+
+    def datetrunc_sql(self, expression: exp.DateTrunc) -> str:
+        unit = expression.unit.name.upper()
+        value = self.sql(expression, "this")
+        if unit == "YEAR":
+            return f"DATE({value}, 'start of year')"
+        if unit == "QUARTER":
+            month = f"CAST(STRFTIME('%m', {value}) AS INTEGER)"
+            offset = f"(CAST(({month} - 1) / 3 AS INTEGER) * 3)"
+            return f"DATE({value}, 'start of year', ({offset}) || ' months')"
+        if unit == "MONTH":
+            return f"DATE({value}, 'start of month')"
+        if unit == "WEEK":
+            # DuckDB DATE_TRUNC('week') starts Monday. SQLite %w: 0=Sunday.
+            weekday = f"CAST(STRFTIME('%w', {value}) AS INTEGER)"
+            offset = f"(({weekday} + 6) % 7)"
+            return f"DATE({value}, '-' || {offset} || ' days')"
+        if unit == "DAY":
+            return f"DATE({value})"
+        if unit == "HOUR":
+            return f"STRFTIME('%Y-%m-%d %H:00:00', {value})"
+        if unit == "MINUTE":
+            return f"STRFTIME('%Y-%m-%d %H:%M:00', {value})"
+        if unit == "SECOND":
+            return f"STRFTIME('%Y-%m-%d %H:%M:%S', {value})"
+        self.unsupported(f"SQLite cannot safely truncate '{unit}'")
+        return super().datetrunc_sql(expression)
+
+    def timestamptrunc_sql(self, expression: exp.TimestampTrunc) -> str:
+        # DuckDB's DATE_TRUNC with a column of unknown type parses as a
+        # TimestampTrunc, not DateTrunc. SQLite has neither built-in function;
+        # reuse the calendar truncation implementation and preserve the
+        # timestamp-shaped output instead of emitting DATE_TRUNC(MONTH, col).
+        date_trunc = exp.DateTrunc(
+            this=expression.this.copy(),
+            unit=expression.unit.copy(),
+        )
+        return f"DATETIME({self.datetrunc_sql(date_trunc)})"
+
     def datediff_sql(self, expression: exp.DateDiff) -> str:
         unit = expression.args.get("unit")
         unit = unit.name.upper() if unit else "DAY"
@@ -492,6 +554,15 @@ class SQLiteGenerator(generator.Generator):
                 return f"({year} * 4 + CAST(({month} - 1) / 3 AS INTEGER))"
 
             return f"({calendar_index(end)} - {calendar_index(start)})"
+
+        if unit == "WEEK":
+            if expression.args.get("date_part_boundary") is False:
+                # DuckDB counts complete seven-day spans, unlike T-SQL's
+                # calendar week-boundary semantics. Never silently conflate them.
+                elapsed = f"(JULIANDAY(DATE({end})) - JULIANDAY(DATE({start})))"
+                return f"CAST({elapsed} / 7 AS INTEGER)"
+            self.unsupported("SQLite WEEK DATEDIFF needs source-specific week boundary rules")
+            return f"DATEDIFF(WEEK, {start}, {end})"
 
         if unit == "DAY":
             # Drop time-of-day before computing day boundaries; truncating a
