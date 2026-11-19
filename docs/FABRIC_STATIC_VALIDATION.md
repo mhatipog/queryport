@@ -33,6 +33,11 @@ INSERT/UPDATE/DELETE/MERGE/TRUNCATE and CREATE/ALTER/DROP TABLE. Note the
 Lakehouse SQL endpoint still supports certain *metadata* objects, e.g. views;
 a blanket read-only ban on all DDL would be incorrect.
 
+When translating **from Oracle**, strict mode also blocks a zero-length string
+literal, because Oracle interprets it as NULL whereas Fabric SQL Server-style T-SQL
+does not. This is a source semantic incompatibility, not a Fabric syntax error.
+[Oracle: Nulls](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Nulls.html).
+
 This is an intentionally limited static denylist, **not** a Fabric-compatible
 SQL grammar or proof of successful execution. Some unsupported constructs may
 escape detection. Even if no violations are reported, independently validate
