@@ -562,7 +562,7 @@ class SQLiteGenerator(generator.Generator):
                 elapsed = f"(JULIANDAY(DATE({end})) - JULIANDAY(DATE({start})))"
                 return f"CAST({elapsed} / 7 AS INTEGER)"
             self.unsupported("SQLite WEEK DATEDIFF needs source-specific week boundary rules")
-            return super().datediff_sql(expression)
+            return f"DATEDIFF(WEEK, {start}, {end})"
 
         if unit == "DAY":
             # Drop time-of-day before computing day boundaries; truncating a
