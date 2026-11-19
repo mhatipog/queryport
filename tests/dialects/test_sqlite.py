@@ -1107,20 +1107,28 @@ class TestSQLite(Validator):
                 "sqlite": "SELECT CONCAT(a, b) FROM t",
             },
         )
-        self.validate_all(
-            "SELECT CONCAT_WS(',', a, b) FROM t",
-            read={
-                "duckdb": "SELECT CONCAT_WS(',', a, b) FROM t",
-                "mysql": "SELECT CONCAT_WS(',', a, b) FROM t",
-                "postgres": "SELECT CONCAT_WS(',', a, b) FROM t",
-            },
-            write={
-                "duckdb": "SELECT CONCAT_WS(',', a, b) FROM t",
-                "mysql": "SELECT CONCAT_WS(',', a, b) FROM t",
-                "postgres": "SELECT CONCAT_WS(',', a, b) FROM t",
-                "snowflake": "SELECT CONCAT_WS(',', COALESCE(a, ''), COALESCE(b, '')) FROM t",
-                "sqlite": "SELECT CONCAT_WS(',', a, b) FROM t",
-            },
+        # SQLite 3.44-3.50.1 CONCAT_WS skipped empty-string fields. Emit
+        # CASE/|| expressions preserving blank non-NULL positions.
+        for source_dialect in ("duckdb", "mysql", "postgres", "sqlite"):
+            converted = parse_one(
+                "SELECT CONCAT_WS(',', a, b) FROM t", read=source_dialect
+            ).sql("sqlite")
+            self.assertIn("CASE WHEN", converted)
+            self.assertIn("a IS NOT NULL", converted)
+            self.assertIn("b IS NULL", converted)
+        self.assertIn(
+            "a IS NULL OR b IS NULL",
+            parse_one("SELECT CONCAT_WS(',', a, b) FROM t", read="snowflake").sql("sqlite"),
+        )
+        expression = self.parse_one("SELECT CONCAT_WS(',', a, b) FROM t")
+        for target_dialect in ("duckdb", "mysql", "postgres"):
+            self.assertEqual(
+                expression.sql(target_dialect),
+                "SELECT CONCAT_WS(',', a, b) FROM t",
+            )
+        self.assertEqual(
+            expression.sql("snowflake"),
+            "SELECT CONCAT_WS(',', COALESCE(a, ''), COALESCE(b, '')) FROM t",
         )
         # CONCAT propagates NULL in these dialects, so || already matches
         self.validate_all(
@@ -1130,9 +1138,9 @@ class TestSQLite(Validator):
                 "snowflake": "SELECT CONCAT(a, b) FROM t",
             },
         )
-        self.validate_all(
-            "SELECT CASE WHEN ',' IS NULL OR a IS NULL OR b IS NULL THEN NULL ELSE CONCAT_WS(',', a, b) END FROM t",
-            read={"snowflake": "SELECT CONCAT_WS(',', a, b) FROM t"},
+        self.assertIn(
+            "CASE WHEN ',' IS NULL OR a IS NULL OR b IS NULL THEN NULL",
+            parse_one("SELECT CONCAT_WS(',', a, b) FROM t", read="snowflake").sql("sqlite"),
         )
         self.validate_all(
             "SELECT JSON_GROUP_ARRAY(name) FROM t",

@@ -160,6 +160,9 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--output", type=Path)
     p.add_argument("--strict", action="store_true", help="Fail if any comparable case mismatches")
+    p.add_argument("--require-ids", default="",
+                   help="Comma-separated case IDs that must execute equivalently")
+
     args = p.parse_args()
     rows = fixtures()
     with duckdb.connect(":memory:") as duck, sqlite3.connect(":memory:") as sqlite:
@@ -188,6 +191,17 @@ def main():
     print("CROSS_TYPE_SWEEP:", json.dumps(counts, sort_keys=True), flush=True)
     if args.output:
         args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    required = {case for case in args.require_ids.split(",") if case}
+    if required:
+        by_id = {item["id"]: item for item in results}
+        missing = required - set(by_id)
+        failing = sorted(key for key in required & set(by_id)
+                         if by_id[key]["status"] != "equivalent")
+        if missing or failing:
+            raise SystemExit(
+                f"Required semantic equivalence cases failed: missing={sorted(missing)}, "
+                f"mismatched={failing}"
+            )
     if args.strict and any(row["status"] != "equivalent" for row in results):
         raise SystemExit("Cross-type live-engine conversion failures present")
 
