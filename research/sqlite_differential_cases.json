@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "description": "Deterministic, published semantics-based executable SQLite comparison of the pinned original SQLGlot baseline and QueryPort. Not a comprehensive cross-engine certification.",
+  "readme": "Dialect source semantics from official PostgreSQL, DuckDB, Microsoft, Oracle, MySQL, Spark and BigQuery docs; expected results computed independently for each case.",
+  "cases": [
+    {
+      "id": "year_boundary",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(year, '2023-12-31', '2024-01-01')",
+      "expected": 1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "year_reverse",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(year, '2024-01-01', '2023-12-31')",
+      "expected": -1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "year_same",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(year, '2024-02-01', '2024-12-31')",
+      "expected": 0,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "quarter_boundary",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(quarter, '2024-03-31', '2024-04-01')",
+      "expected": 1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "quarter_reverse",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(quarter, '2024-04-01', '2024-03-31')",
+      "expected": -1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "month_boundary",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(month, '2024-01-31', '2024-02-01')",
+      "expected": 1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "month_year",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(month, '2023-12-31', '2024-02-01')",
+      "expected": 2,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "day_midnight",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(day, '2024-01-01 23:59:59', '2024-01-02 00:00:01')",
+      "expected": 1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "day_reverse",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(day, '2024-01-02 00:00:01', '2024-01-01 23:59:59')",
+      "expected": -1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "day_leap",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(day, '2024-02-29', '2024-03-01')",
+      "expected": 1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "hour_boundary",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(hour, '2024-01-01 00:59:59', '2024-01-01 01:00:01')",
+      "expected": 1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "hour_same",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(hour, '2024-01-01 01:00:01', '2024-01-01 01:59:59')",
+      "expected": 0,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "minute_boundary",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(minute, '2024-01-01 00:00:59', '2024-01-01 00:01:00')",
+      "expected": 1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "minute_reverse",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(minute, '2024-01-01 00:01:00', '2024-01-01 00:00:59')",
+      "expected": -1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "second_boundary",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(second, '2024-01-01 00:00:00.900', '2024-01-01 00:00:01.100')",
+      "expected": 1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "second_same",
+      "read": "tsql",
+      "sql": "SELECT DATEDIFF(second, '2024-01-01 00:00:01.100', '2024-01-01 00:00:01.900')",
+      "expected": 0,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "duckdb_month_boundary",
+      "read": "duckdb",
+      "sql": "SELECT DATE_DIFF('month', DATE '2023-12-31', DATE '2024-01-01')",
+      "expected": 1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "bigquery_month_boundary",
+      "read": "bigquery",
+      "sql": "SELECT DATE_DIFF(DATE '2024-01-01', DATE '2023-12-31', MONTH)",
+      "expected": 1,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "mysql_feb_clamp",
+      "read": "mysql",
+      "sql": "SELECT DATE_ADD('2024-01-31', INTERVAL 1 MONTH)",
+      "expected": "2024-02-29",
+      "comparison": "date",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "mysql_year_clamp",
+      "read": "mysql",
+      "sql": "SELECT DATE_ADD('2024-02-29', INTERVAL 1 YEAR)",
+      "expected": "2025-02-28",
+      "comparison": "date",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "mysql_backward_clamp",
+      "read": "mysql",
+      "sql": "SELECT DATE_SUB('2024-03-31', INTERVAL 1 MONTH)",
+      "expected": "2024-02-29",
+      "comparison": "date",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "oracle_eom_leap",
+      "read": "oracle",
+      "sql": "SELECT ADD_MONTHS('2024-02-29', 1) FROM dual",
+      "expected": "2024-03-31",
+      "comparison": "date",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "oracle_eom_nonleap",
+      "read": "oracle",
+      "sql": "SELECT ADD_MONTHS('2023-02-28', 1) FROM dual",
+      "expected": "2023-03-31",
+      "comparison": "date",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "oracle_non_eom",
+      "read": "oracle",
+      "sql": "SELECT ADD_MONTHS('2024-01-30', 1) FROM dual",
+      "expected": "2024-02-29",
+      "comparison": "date",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "spark_month_clamp",
+      "read": "spark",
+      "sql": "SELECT ADD_MONTHS('2024-01-31', 1)",
+      "expected": "2024-02-29",
+      "comparison": "date",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "spark_month_back",
+      "read": "spark",
+      "sql": "SELECT ADD_MONTHS('2024-03-31', -1)",
+      "expected": "2024-02-29",
+      "comparison": "date",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "tsql_month_clamp",
+      "read": "tsql",
+      "sql": "SELECT DATEADD(month, 1, '2024-01-31')",
+      "expected": "2024-02-29",
+      "comparison": "date",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "tsql_year_clamp",
+      "read": "tsql",
+      "sql": "SELECT DATEADD(year, 1, '2024-02-29')",
+      "expected": "2025-02-28",
+      "comparison": "date",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "pg_date_minus_date",
+      "read": "postgres",
+      "sql": "SELECT CAST('2024-03-01' AS DATE) - CAST('2024-02-01' AS DATE)",
+      "expected": 29,
+      "comparison": "integer",
+      "api": "source_date_port"
+    },
+    {
+      "id": "duckdb_date_minus_date",
+      "read": "duckdb",
+      "sql": "SELECT CAST('2024-03-01' AS DATE) - CAST('2024-02-01' AS DATE)",
+      "expected": 29,
+      "comparison": "integer",
+      "api": "source_date_port"
+    },
+    {
+      "id": "numeric_subtraction",
+      "read": "postgres",
+      "sql": "SELECT 11 - 4",
+      "expected": 7,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    },
+    {
+      "id": "native_sqlite_subtraction",
+      "read": "sqlite",
+      "sql": "SELECT CAST('2024-03-01' AS DATE) - CAST('2024-02-01' AS DATE)",
+      "expected": 0,
+      "comparison": "integer",
+      "api": "sqlglot_transpile"
+    }
+  ]
+}
