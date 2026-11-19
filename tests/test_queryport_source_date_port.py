@@ -104,6 +104,16 @@ class TestDateSubtractionPort(unittest.TestCase):
         self.assertEqual(result.untyped_subtractions, 1)
         self.assertFalse(result.semantic_equivalence_proven)
 
+    def test_join_ambiguity_does_not_misattribute_column_types(self):
+        result = port_date_subtraction(
+            "SELECT d2 - d1 FROM events e JOIN other o ON e.x = o.x",
+            read="postgres",
+            schema={"events": {"d1": "DATE", "d2": "DATE"},
+                    "other": {"d1": "INT", "d2": "INT", "x": "INT"}},
+        )
+        self.assertEqual(result.date_subtractions_rewritten, 0)
+        self.assertGreaterEqual(result.untyped_subtractions, 1)
+
     def test_integer_constants_and_mixed_date_arithmetic_not_rewritten(self):
         cases = (
             "SELECT 12 - 9",
