@@ -114,6 +114,12 @@ def strict_transpile(sql: str, *, read: str, profile: Profile) -> StaticConversi
         raise ValueError(f"Unknown Fabric target profile {profile!r}")
 
     source = parse(sql, read=read, error_level=ErrorLevel.IMMEDIATE)
+    if read.lower() == "tsql":
+        source_issues = fabric_violations(sql, profile)
+        if source_issues:
+            raise UnsupportedFabricFeature(
+                f"{profile}: documented unsupported source feature(s): " + ", ".join(source_issues)
+            )
     if not source or any(tree is None for tree in source):
         raise UnsupportedFabricFeature("Empty or incomplete SQL parse")
 
@@ -125,7 +131,7 @@ def strict_transpile(sql: str, *, read: str, profile: Profile) -> StaticConversi
         if not generated.strip():
             raise UnsupportedFabricFeature("Generation produced an empty statement")
         target_trees = parse(generated, read="tsql", error_level=ErrorLevel.IMMEDIATE)
-        if not target_trees or any(
+        if len(target_trees) != 1 or any(
             target is None or target.find(exp.Command) or isinstance(target, exp.Command)
             for target in target_trees
         ):
