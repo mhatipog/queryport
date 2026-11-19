@@ -1,3 +1,16 @@
+# QueryPort agent instructions (in addition to upstream SQLGlot guidance)
+
+- **Mission:** find and reproducibly fix incorrect cross-dialect SQL parsing/transpilation, prioritizing Oracle SQL/PLSQL, Spark 3.5/4.1 and Fabric Warehouse / Lakehouse T-SQL. Read [engineering quality gates](docs/QUERYPORT_ENGINEERING.md) first.
+- **Evidence:** begin with a deterministic, minimal corpus case, real-engine behavior if available, and a pinned source/target profile. A generated query or reparsed AST is NEVER sufficient to claim semantic equivalence.
+- **Regression:** run `PYTHONPATH=. python3 research/portability_probe.py`, `PYTHONPATH=. python3 research/sqlite_semantic_audit.py`, targeted tests and the full Python suite. Note that one SQLite date subtraction `expectedFailure` is deliberate.
+- **Safety:** treat opaque `Command` fallback, unsupported syntax, data loss and unverified program side-effects as blockers; never silently drop PL/SQL control flow. Do not execute mutations against production databases.
+- **Comparability:** report baseline upstream and fork commits, exact case count, conversion route, parse/generate/engine/result gates and resource budgets. Do not pad measurements with simple generated SELECT statements.
+- **Branch discipline:** develop on narrowly scoped branches, run OCI checks, review and merge only after the validated gate. Keep original SQLGlot MIT license and attribution; keep `sqlglot` Python API compatible until explicit package migration.
+- **Target distinction:** `tsql` is a dialect, not a proof of compatibility with Fabric Warehouse or Lakehouse SQL endpoint. Use strict profile checks plus live endpoint compilation tests.
+- **Costs:** prefer existing free ARM64 OCI runner for tests and no artifact uploads. Fabric validation requires an authorized isolated test workspace and known budget.
+
+---
+
 # Contributing to [SQLGlot](https://github.com/tobymao/sqlglot/blob/main/README.md)
 ## About SQLGlot
 

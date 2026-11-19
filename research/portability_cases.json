@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "scope": "diagnostic, not evidence of semantic equivalence",
+  "sources": [
+    "https://docs.oracle.com/en/database/oracle/oracle-database/26/lnpls/index.html",
+    "https://spark.apache.org/docs/4.1.4/sql-ref-scripting.html",
+    "https://learn.microsoft.com/en-us/fabric/data-warehouse/tsql-surface-area"
+  ],
+  "cases": [
+    {
+      "id": "ORA001",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "NULL replacement",
+      "sql": "SELECT NVL(amount, 0) AS safe_amount FROM orders"
+    },
+    {
+      "id": "ORA002",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "DECODE and NULL",
+      "sql": "SELECT DECODE(status, 'Y', 1, 'N', 0, NULL) AS state FROM orders"
+    },
+    {
+      "id": "ORA003",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "SYSDATE and dual",
+      "sql": "SELECT SYSDATE AS snapshot_time FROM dual"
+    },
+    {
+      "id": "ORA004",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "date truncation",
+      "sql": "SELECT TRUNC(order_date, 'MM') AS month_start FROM orders"
+    },
+    {
+      "id": "ORA005",
+      "read": "oracle",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "ROWNUM and ordering",
+      "sql": "SELECT * FROM orders WHERE ROWNUM <= 10"
+    },
+    {
+      "id": "ORA006",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "legacy outer join",
+      "sql": "SELECT e.empno, d.dname FROM emp e, dept d WHERE e.deptno = d.deptno(+)"
+    },
+    {
+      "id": "ORA007",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "hierarchical recursion",
+      "sql": "SELECT LEVEL AS depth FROM dual CONNECT BY LEVEL <= 5"
+    },
+    {
+      "id": "ORA008",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "ordered list aggregation",
+      "sql": "SELECT LISTAGG(name, ',') WITHIN GROUP (ORDER BY name) AS names FROM dept"
+    },
+    {
+      "id": "ORA009",
+      "read": "oracle",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "date format tokens",
+      "sql": "SELECT TO_CHAR(order_date, 'YYYY-MM-DD') AS formatted FROM orders"
+    },
+    {
+      "id": "ORA010",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "month-end boundaries",
+      "sql": "SELECT ADD_MONTHS(order_date, 1) AS next_month FROM orders"
+    },
+    {
+      "id": "ORA011",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "empty string NULL semantics",
+      "sql": "SELECT CASE WHEN text_col = '' THEN 1 ELSE 0 END FROM t"
+    },
+    {
+      "id": "ORA012",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "MERGE stateful effects",
+      "sql": "MERGE INTO tgt USING src ON (tgt.id = src.id) WHEN MATCHED THEN UPDATE SET tgt.x = src.x WHEN NOT MATCHED THEN INSERT (id, x) VALUES (src.id, src.x)"
+    },
+    {
+      "id": "ORA013",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "date arithmetic",
+      "sql": "SELECT CAST('2024-02-29' AS DATE) + 1 AS next_day FROM dual"
+    },
+    {
+      "id": "PLS001",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "PLSQL variable and INTO",
+      "sql": "DECLARE v_total NUMBER := 0; BEGIN SELECT SUM(amount) INTO v_total FROM sales; END;"
+    },
+    {
+      "id": "PLS002",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "PLSQL cursor FOR",
+      "sql": "BEGIN FOR rec IN (SELECT id FROM src) LOOP UPDATE dst SET status = 'Y' WHERE id = rec.id; END LOOP; END;"
+    },
+    {
+      "id": "PLS003",
+      "read": "oracle",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "stored procedure transaction",
+      "sql": "CREATE OR REPLACE PROCEDURE refresh_data AS BEGIN DELETE FROM staging; INSERT INTO staging SELECT * FROM source; COMMIT; END;"
+    },
+    {
+      "id": "PLS004",
+      "read": "oracle",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "dynamic SQL and exception suppression",
+      "sql": "BEGIN EXECUTE IMMEDIATE 'DELETE FROM work WHERE id = 1'; EXCEPTION WHEN OTHERS THEN NULL; END;"
+    },
+    {
+      "id": "SPK001",
+      "read": "spark",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "array to relational rows",
+      "sql": "SELECT EXPLODE(ARRAY(1,2,3)) AS v"
+    },
+    {
+      "id": "SPK002",
+      "read": "spark",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "date function",
+      "sql": "SELECT DATE_ADD(order_date, 7) AS due FROM orders"
+    },
+    {
+      "id": "SPK003",
+      "read": "spark",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "lateral view explode",
+      "sql": "SELECT id, item FROM orders LATERAL VIEW EXPLODE(items) t AS item"
+    },
+    {
+      "id": "SPK004",
+      "read": "spark",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "boolean aggregation",
+      "sql": "SELECT COUNT_IF(flag) AS n FROM orders"
+    },
+    {
+      "id": "SPK005",
+      "read": "spark",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "null safe comparison",
+      "sql": "SELECT a <=> b AS same_or_null FROM pairs"
+    },
+    {
+      "id": "SPK006",
+      "read": "spark",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "structured JSON",
+      "sql": "SELECT FROM_JSON(payload, 'a INT, b STRING') AS obj FROM events"
+    },
+    {
+      "id": "SPK007",
+      "read": "spark",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "MERGE compatibility",
+      "sql": "MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN UPDATE SET t.v = s.v"
+    },
+    {
+      "id": "TSQL001",
+      "read": "tsql",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "TOP ordering",
+      "sql": "SELECT TOP (10) order_id FROM dbo.orders ORDER BY order_date DESC"
+    },
+    {
+      "id": "TSQL002",
+      "read": "tsql",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "ISNULL semantic rules",
+      "sql": "SELECT ISNULL(amount, 0) AS safe FROM dbo.orders"
+    },
+    {
+      "id": "TSQL003",
+      "read": "tsql",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "DATEADD semantics",
+      "sql": "SELECT DATEADD(day, 7, order_date) AS due FROM dbo.orders"
+    },
+    {
+      "id": "TSQL004",
+      "read": "tsql",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "TRY_CONVERT errors",
+      "sql": "SELECT TRY_CONVERT(INT, code) AS parsed FROM dbo.orders"
+    },
+    {
+      "id": "TSQL005",
+      "read": "tsql",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "CROSS APPLY and OPENJSON",
+      "sql": "SELECT * FROM dbo.events CROSS APPLY OPENJSON(payload) WITH (id INT '$.id') AS j"
+    },
+    {
+      "id": "TSQL006",
+      "read": "tsql",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "Unicode literals",
+      "sql": "SELECT N'Åland' AS locality"
+    },
+    {
+      "id": "TSQL007",
+      "read": "tsql",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "temp table and scope",
+      "sql": "CREATE TABLE #scratch (id INT, x VARCHAR(10))"
+    },
+    {
+      "id": "TSQL008",
+      "read": "tsql",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "TSQL procedural",
+      "sql": "CREATE OR ALTER PROCEDURE dbo.run_batch AS BEGIN DECLARE @x INT = 0; SELECT @x = COUNT(*) FROM dbo.orders; END"
+    },
+    {
+      "id": "TSQL009",
+      "read": "tsql",
+      "write": "spark",
+      "target_profile": "fabric-spark-4.1",
+      "feature": "FOR JSON output contract",
+      "sql": "SELECT * FROM dbo.events FOR JSON PATH"
+    },
+    {
+      "id": "FAB001",
+      "read": "tsql",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "Fabric unsupported materialized view",
+      "sql": "CREATE MATERIALIZED VIEW dbo.summary AS SELECT id, COUNT(*) AS n FROM dbo.orders GROUP BY id"
+    },
+    {
+      "id": "FAB002",
+      "read": "tsql",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "Fabric unsupported CREATE USER",
+      "sql": "CREATE USER analyst WITHOUT LOGIN"
+    },
+    {
+      "id": "FAB003",
+      "read": "tsql",
+      "write": "tsql",
+      "target_profile": "fabric-lakehouse-sql-endpoint",
+      "feature": "Fabric endpoint table DML prohibited",
+      "sql": "INSERT INTO dbo.orders (id) VALUES (1)"
+    },
+    {
+      "id": "FAB004",
+      "read": "tsql",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "Fabric Warehouse supported MERGE",
+      "sql": "MERGE INTO dbo.dest AS d USING dbo.src AS s ON d.id = s.id WHEN MATCHED THEN UPDATE SET d.v = s.v"
+    },
+    {
+      "id": "FAB005",
+      "read": "tsql",
+      "write": "tsql",
+      "target_profile": "fabric-warehouse",
+      "feature": "Fabric unsupported FOR XML",
+      "sql": "SELECT * FROM dbo.orders FOR XML AUTO"
+    }
+  ]
+}
