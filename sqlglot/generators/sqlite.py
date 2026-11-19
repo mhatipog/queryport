@@ -419,28 +419,63 @@ class SQLiteGenerator(generator.Generator):
     def datediff_sql(self, expression: exp.DateDiff) -> str:
         unit = expression.args.get("unit")
         unit = unit.name.upper() if unit else "DAY"
+        end = self.sql(expression, "this")
+        start = self.sql(expression, "expression")
 
-        sql = f"(JULIANDAY({self.sql(expression, 'this')}) - JULIANDAY({self.sql(expression, 'expression')}))"
+        # Calendar-based DATE_DIFF/DATEDIFF functions count unit boundaries, not
+        # elapsed durations divided by an approximate unit length. For example,
+        # 2023-12-31 -> 2024-01-01 crosses one MONTH and one YEAR boundary.
+        if unit in ("YEAR", "QUARTER", "MONTH"):
+            def calendar_index(value: str) -> str:
+                year = f"CAST(STRFTIME('%Y', {value}) AS INTEGER)"
+                if unit == "YEAR":
+                    return year
+                month = f"CAST(STRFTIME('%m', {value}) AS INTEGER)"
+                if unit == "MONTH":
+                    return f"({year} * 12 + {month})"
+                return f"({year} * 4 + CAST(({month} - 1) / 3 AS INTEGER))"
 
-        if unit == "MONTH":
-            sql = f"{sql} / 30.0"
-        elif unit == "YEAR":
-            sql = f"{sql} / 365.0"
-        elif unit == "HOUR":
-            sql = f"{sql} * 24.0"
-        elif unit == "MINUTE":
-            sql = f"{sql} * 1440.0"
-        elif unit == "SECOND":
-            sql = f"{sql} * 86400.0"
-        elif unit == "MILLISECOND":
+            return f"({calendar_index(end)} - {calendar_index(start)})"
+
+        if unit == "DAY":
+            # Drop time-of-day before computing day boundaries; truncating a
+            # 2-second gap across midnight would incorrectly produce zero.
+            return f"CAST((JULIANDAY(DATE({end})) - JULIANDAY(DATE({start}))) AS INTEGER)"
+
+        if unit in ("HOUR", "MINUTE", "SECOND"):
+            # Truncate both timestamps independently to the requested boundary,
+            # then subtract exact integral Unix seconds. This avoids the floating
+            # point rounding errors of JULIANDAY(timestamp) * 86400.
+            truncation = {
+                "HOUR": ("%Y-%m-%d %H:00:00", 3600),
+                "MINUTE": ("%Y-%m-%d %H:%M:00", 60),
+                "SECOND": ("%Y-%m-%d %H:%M:%S", 1),
+            }
+            format_string, seconds = truncation[unit]
+
+            def boundary_epoch(value: str) -> str:
+                return (
+                    f"CAST(STRFTIME('%s', STRFTIME('{format_string}', {value})) "
+                    "AS INTEGER)"
+                )
+
+            return (
+                f"CAST(({boundary_epoch(end)} - {boundary_epoch(start)}) "
+                f"/ {seconds} AS INTEGER)"
+            )
+
+        # Sub-millisecond and higher precision require separate capabilities;
+        # leave the established generator behavior in place until independently
+        # verified against engines that support those precisions.
+        sql = f"(JULIANDAY({end}) - JULIANDAY({start}))"
+        if unit == "MILLISECOND":
             sql = f"{sql} * 86400000.0"
         elif unit == "MICROSECOND":
             sql = f"{sql} * 86400000000.0"
         elif unit == "NANOSECOND":
             sql = f"{sql} * 86400000000000.0"
-        elif unit != "DAY":
+        else:
             self.unsupported(f"DATEDIFF unsupported for '{unit}'.")
-
         return f"CAST({sql} AS INTEGER)"
 
     def groupconcat_sql(self, expression: exp.GroupConcat) -> str:

@@ -1409,19 +1409,19 @@ class TestSQLite(Validator):
     def test_datediff(self):
         self.assertEqual(
             parse_one("DATEDIFF(a, b, 'day')").sql("sqlite", unsupported_level=ErrorLevel.RAISE),
-            "CAST((JULIANDAY(a) - JULIANDAY(b)) AS INTEGER)",
+            "CAST((JULIANDAY(DATE(a)) - JULIANDAY(DATE(b))) AS INTEGER)",
         )
         self.validate_all(
             "DATEDIFF(a, b, 'day')",
-            write={"sqlite": "CAST((JULIANDAY(a) - JULIANDAY(b)) AS INTEGER)"},
+            write={"sqlite": "CAST((JULIANDAY(DATE(a)) - JULIANDAY(DATE(b))) AS INTEGER)"},
         )
         self.validate_all(
             "DATEDIFF(a, b, 'hour')",
-            write={"sqlite": "CAST((JULIANDAY(a) - JULIANDAY(b)) * 24.0 AS INTEGER)"},
+            write={"sqlite": "CAST((CAST(STRFTIME('%s', STRFTIME('%Y-%m-%d %H:00:00', a)) AS INTEGER) - CAST(STRFTIME('%s', STRFTIME('%Y-%m-%d %H:00:00', b)) AS INTEGER)) / 3600 AS INTEGER)"},
         )
         self.validate_all(
             "DATEDIFF(a, b, 'year')",
-            write={"sqlite": "CAST((JULIANDAY(a) - JULIANDAY(b)) / 365.0 AS INTEGER)"},
+            write={"sqlite": "(CAST(STRFTIME('%Y', a) AS INTEGER) - CAST(STRFTIME('%Y', b) AS INTEGER))"},
         )
         self.validate_all(
             "DATEDIFF(a, b, 'nanosecond')",
