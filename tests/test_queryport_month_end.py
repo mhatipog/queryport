@@ -65,7 +65,8 @@ class TestMonthEndPortability(unittest.TestCase):
                 # deliberately contain non-timezone datetime strings.
                 self.assertEqual(
                     [item.replace("T", " ") if item else item for item in values],
-                    [item.isoformat(sep=" ") for item in expected],
+                    [item.date().isoformat() if dialect == "spark" else item.isoformat(sep=" ")
+                     for item in expected],
                 )
 
     def test_nulls_propagate(self):
