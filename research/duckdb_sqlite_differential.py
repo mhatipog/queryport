@@ -34,6 +34,20 @@ SQL_CASES = (
     ("plus_day_interval", "SELECT d1 + INTERVAL 1 DAY FROM event_dates ORDER BY id", "transpile", "date"),
     ("trunc_month", "SELECT DATE_TRUNC('month', d1) FROM event_dates ORDER BY id", "transpile", "date"),
     ("extract_year", "SELECT EXTRACT(YEAR FROM d1) FROM event_dates ORDER BY id", "transpile", "integer"),
+    ("extract_month", "SELECT EXTRACT(MONTH FROM d1) FROM event_dates ORDER BY id", "transpile", "integer"),
+    ("extract_day", "SELECT EXTRACT(DAY FROM d1) FROM event_dates ORDER BY id", "transpile", "integer"),
+    ("extract_quarter", "SELECT EXTRACT(QUARTER FROM d1) FROM event_dates ORDER BY id", "transpile", "integer"),
+    ("extract_dayofyear", "SELECT EXTRACT(DAYOFYEAR FROM d1) FROM event_dates ORDER BY id", "transpile", "integer"),
+    ("extract_dow", "SELECT EXTRACT(DOW FROM d1) FROM event_dates ORDER BY id", "transpile", "integer"),
+    ("trunc_year", "SELECT DATE_TRUNC('year', d1) FROM event_dates ORDER BY id", "transpile", "date"),
+    ("trunc_quarter", "SELECT DATE_TRUNC('quarter', d1) FROM event_dates ORDER BY id", "transpile", "date"),
+    ("trunc_week", "SELECT DATE_TRUNC('week', d1) FROM event_dates ORDER BY id", "transpile", "date"),
+    ("trunc_day", "SELECT DATE_TRUNC('day', d1) FROM event_dates ORDER BY id", "transpile", "date"),
+    ("plus_year_interval", "SELECT d1 + INTERVAL 1 YEAR FROM event_dates ORDER BY id", "transpile", "date"),
+    ("minus_year_interval", "SELECT d1 - INTERVAL 1 YEAR FROM event_dates ORDER BY id", "transpile", "date"),
+    ("diff_hours", "SELECT DATE_DIFF('hour', d1, d2) FROM event_dates ORDER BY id", "transpile", "integer"),
+    ("diff_minutes", "SELECT DATE_DIFF('minute', d1, d2) FROM event_dates ORDER BY id", "transpile", "integer"),
+    ("diff_seconds", "SELECT DATE_DIFF('second', d1, d2) FROM event_dates ORDER BY id", "transpile", "integer"),
 )
 
 
