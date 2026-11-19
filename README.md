@@ -1,3 +1,22 @@
+# QueryPort
+
+**Parse SQL. Port dialects. Verify behavior.**
+
+QueryPort is a public, experimental fork of [SQLGlot](https://github.com/tobymao/sqlglot), focused on rigorous SQL parsing, cross-dialect transpilation and verifiable behavior, with special emphasis on **Oracle SQL and PL/SQL, Apache Spark SQL, and Microsoft Fabric Warehouse / Lakehouse T-SQL**.
+
+- [QueryPort engineering plan, target profiles and quality gates](docs/QUERYPORT_ENGINEERING.md)
+- [38-case portability corpus](research/portability_cases.json) and [diagnostic runner](research/portability_probe.py)
+- [SQLite semantic regression research](research/SQLITE_SEMANTIC_AUDIT.md)
+- [Continuous validation on the existing free OCI ARM64 runner](https://github.com/mhatipog/web-operations/actions/workflows/sqlglot-oci-validation.yml)
+
+**Project maturity:** this fork currently builds on SQLGlot's implementation and preserves the original `sqlglot` Python import path. Our portability probe checks **syntax only**, not runtime or semantic equivalence. We do not yet claim greater correctness or wider support than upstream. Oracle PL/SQL procedural translation and real Fabric compatibility are active research goals, not completed features.
+
+**License and attribution:** derived from SQLGlot by Toby Mao and contributors; original MIT license, copyright notices, authorship and historical documentation are retained below. The QueryPort brand does not imply affiliation with or endorsement by SQLGlot maintainers.
+
+---
+
+## Upstream SQLGlot documentation (preserved)
+
 ![SQLGlot logo](sqlglot.png)
 
 SQLGlot is a no-dependency SQL parser, transpiler, optimizer, and engine. It can be used to format SQL or translate between [over 30 dialects](https://github.com/tobymao/sqlglot/blob/main/sqlglot/dialects/__init__.py) like [DuckDB](https://duckdb.org/), [Presto](https://prestodb.io/) / [Trino](https://trino.io/), [Spark](https://spark.apache.org/) / [Databricks](https://www.databricks.com/), [Snowflake](https://www.snowflake.com/en/), and [BigQuery](https://cloud.google.com/bigquery/). It aims to read a wide variety of SQL inputs and output syntactically and semantically correct SQL in the targeted dialects.
