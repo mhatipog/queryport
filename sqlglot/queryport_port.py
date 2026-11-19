@@ -49,21 +49,61 @@ def _explicit_date(expr: exp.Expr) -> bool:
     return isinstance(expr, (exp.DateStrToDate, exp.TsOrDsToDate))
 
 
-def _date_operand(expr: exp.Expr, trust_schema: bool) -> bool:
-    return _explicit_date(expr) or (trust_schema and expr.is_type(*_DATE_TYPES))
+def _single_table_schema_type(
+    node: exp.Expr, schema: dict[str, Any] | None
+) -> str | None:
+    """Resolve an unqualified column ONLY for a single physical-table SELECT.
+
+    SQLGlot type annotation handles qualified columns, but deliberately leaves
+    unqualified identifiers unresolved. We can safely resolve them ourselves
+    only when there is exactly one physical source table and no nested sources.
+    """
+    if not schema or not isinstance(node, exp.Column) or node.table:
+        return None
+    select = node.find_ancestor(exp.Select)
+    if select is None:
+        return None
+    tables = list(select.find_all(exp.Table))
+    if len(tables) != 1:
+        return None
+    table_name = tables[0].name
+    candidates = [value for name, value in schema.items()
+                  if isinstance(name, str) and name.lower() == table_name.lower()]
+    if len(candidates) != 1 or not isinstance(candidates[0], dict):
+        return None
+    columns = candidates[0]
+    matched = [v for k, v in columns.items()
+               if isinstance(k, str) and k.lower() == node.name.lower()]
+    if len(matched) != 1:
+        return None
+    value = matched[0]
+    if isinstance(value, exp.DataType):
+        return value.this.value
+    return value.upper().strip() if isinstance(value, str) else None
 
 
-def _ambiguous_subtraction(expr: exp.Sub, trust_schema: bool) -> bool:
-    if trust_schema and all(
-        side.type and not side.is_type(exp.DType.UNKNOWN)
-        for side in (expr.this, expr.expression)
-    ):
+def _date_operand(expr: exp.Expr, schema: dict[str, Any] | None) -> bool:
+    if _explicit_date(expr):
+        return True
+    if schema is None:
         return False
-    return (
-        any(isinstance(node, exp.Column) for side in (expr.this, expr.expression)
-            for node in side.walk())
-        and not (_explicit_date(expr.this) and _explicit_date(expr.expression))
-    )
+    if expr.is_type(*_DATE_TYPES):
+        return True
+    return _single_table_schema_type(expr, schema) in ("DATE", "DATE32")
+
+
+def _ambiguous_subtraction(expr: exp.Sub, schema: dict[str, Any] | None) -> bool:
+    def unresolved(side: exp.Expr) -> bool:
+        if _explicit_date(side):
+            return False
+        if schema is not None and (
+            (side.type and not side.is_type(exp.DType.UNKNOWN))
+            or _single_table_schema_type(side, schema) is not None
+        ):
+            return False
+        return any(isinstance(node, exp.Column) for node in side.walk())
+
+    return unresolved(expr.this) or unresolved(expr.expression)
 
 
 def port_date_subtraction(
@@ -103,8 +143,8 @@ def port_date_subtraction(
             nonlocal rewritten, ambiguous
             if not isinstance(node, exp.Sub):
                 return node
-            if _date_operand(node.this, schema is not None) and _date_operand(
-                node.expression, schema is not None
+            if _date_operand(node.this, schema) and _date_operand(
+                node.expression, schema
             ):
                 rewritten += 1
                 return exp.DateDiff(
@@ -113,7 +153,7 @@ def port_date_subtraction(
                     unit=exp.var("DAY"),
                     date_part_boundary=True,
                 )
-            if _ambiguous_subtraction(node, schema is not None):
+            if _ambiguous_subtraction(node, schema):
                 ambiguous += 1
             return node
 
