@@ -284,6 +284,53 @@ class SQLiteGenerator(generator.Generator):
             return self.func("STRFTIME", "'%Y-%m-%d %H:%M:%f'", "'now'")
         return super().attimezone_sql(expression)
 
+    def _month_shift_sql(
+        self,
+        base: exp.Expr,
+        month_count: exp.Expr | str,
+        preserve_end_of_month: bool = False,
+        preserve_time: bool = True,
+    ) -> str:
+        """Add calendar months without SQLite's default overflowing-day behavior.
+
+        Oracle ADD_MONTHS also preserves end-of-month across month lengths.
+        Spark/MySQL/T-SQL month addition clamps only if the target month lacks
+        the original day. Uses pre-3.46 SQLite built-ins (no 'floor' modifier).
+        """
+        value = self.sql(base)
+        months = month_count if isinstance(month_count, str) else self.sql(month_count)
+        first = f"DATE({value}, 'start of month', ({months}) || ' months')"
+        target_last = f"DATE({first}, '+1 month', '-1 day')"
+        target_day_count = f"CAST(STRFTIME('%d', {target_last}) AS INTEGER)"
+        source_day = f"CAST(STRFTIME('%d', {value}) AS INTEGER)"
+        day = f"MIN({source_day}, {target_day_count})"
+        if preserve_end_of_month:
+            original_last = f"DATE({value}, 'start of month', '+1 month', '-1 day')"
+            day = (
+                f"(CASE WHEN DATE({value}) = {original_last} "
+                f"THEN {target_day_count} ELSE {day} END)"
+            )
+
+        shifted = f"DATE({first}, ({day} - 1) || ' days')"
+        if not preserve_time:
+            return shifted
+
+        # Preserve textual time-of-day for datetime inputs; don't accidentally
+        # turn '2024-01-31 12:34:56' into a bare date at the month boundary.
+        time_suffix = (
+            f"CASE WHEN INSTR({value}, ' ') > 0 "
+            f"THEN SUBSTR({value}, INSTR({value}, ' ')) ELSE '' END"
+        )
+        return f"({shifted} || {time_suffix})"
+
+    def addmonths_sql(self, expression: exp.AddMonths) -> str:
+        return self._month_shift_sql(
+            expression.this,
+            expression.expression,
+            preserve_end_of_month=bool(expression.args.get("preserve_end_of_month")),
+            preserve_time=bool(expression.args.get("preserve_end_of_month")),
+        )
+
     def dateadd_sql(self, expression: exp.DateAdd) -> str:
         return self._date_delta_sql(expression, expression.this, expression.expression)
 
@@ -303,6 +350,15 @@ class SQLiteGenerator(generator.Generator):
         if unit_name == "WEEK":
             modifier = modifier * 7
             unit = exp.var("DAY")
+
+        if isinstance(expression, (exp.DateAdd, exp.DateSub)) and unit_name in ("MONTH", "YEAR"):
+            month_count = (
+                modifier.name if isinstance(modifier, exp.Literal) and modifier.is_string
+                else self.sql(modifier)
+            )
+            if unit_name == "YEAR":
+                month_count = f"({month_count} * 12)"
+            return self._month_shift_sql(base, month_count)
 
         # DATE + INTERVAL can return DATE or TIMESTAMP depending on the source dialect.
         if expression.is_type(exp.DType.DATE, exp.DType.DATE32):

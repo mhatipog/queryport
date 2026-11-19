@@ -824,11 +824,10 @@ class TestSQLite(Validator):
                 "duckdb": "SELECT DATE_ADD(d, INTERVAL (n + 1) DAY) FROM t",
             },
         )
-        self.validate_all(
-            "SELECT DATE(d, (-n) || ' MONTH') FROM t",
-            read={
-                "duckdb": "SELECT DATE_ADD(d, INTERVAL (-n) MONTH) FROM t",
-            },
+        self.validate_identity("SELECT DATE(d, (-n) || ' MONTH') FROM t")
+        self.assertIn(
+            "'start of month'",
+            parse_one("SELECT DATE_ADD(d, INTERVAL (-n) MONTH)", "duckdb").sql("sqlite"),
         )
         self.validate_all(
             "SELECT DATE(d, (NULL) || ' DAY') FROM t",
@@ -836,13 +835,12 @@ class TestSQLite(Validator):
                 "duckdb": "SELECT DATE_ADD(d, INTERVAL (NULL) DAY) FROM t",
             },
         )
-        self.validate_all(
-            "SELECT DATE(d, '-1 MONTH') FROM t",
-            read={
-                "bigquery": "SELECT DATE_SUB(d, INTERVAL 1 MONTH) FROM t",
-                "mysql": "SELECT DATE_SUB(d, INTERVAL 1 MONTH) FROM t",
-            },
-        )
+        self.validate_identity("SELECT DATE(d, '-1 MONTH') FROM t")
+        for source_dialect in ("bigquery", "mysql"):
+            self.assertIn(
+                "'start of month'",
+                parse_one("SELECT DATE_SUB(d, INTERVAL 1 MONTH)", source_dialect).sql("sqlite"),
+            )
         self.validate_all(
             "SELECT DATE(d, '2 DAY') FROM t",
             read={
