@@ -523,6 +523,17 @@ class SQLiteGenerator(generator.Generator):
         self.unsupported(f"SQLite cannot safely truncate '{unit}'")
         return super().datetrunc_sql(expression)
 
+    def timestamptrunc_sql(self, expression: exp.TimestampTrunc) -> str:
+        # DuckDB's DATE_TRUNC with a column of unknown type parses as a
+        # TimestampTrunc, not DateTrunc. SQLite has neither built-in function;
+        # reuse the calendar truncation implementation and preserve the
+        # timestamp-shaped output instead of emitting DATE_TRUNC(MONTH, col).
+        date_trunc = exp.DateTrunc(
+            this=expression.this.copy(),
+            unit=expression.unit.copy(),
+        )
+        return f"DATETIME({self.datetrunc_sql(date_trunc)})"
+
     def datediff_sql(self, expression: exp.DateDiff) -> str:
         unit = expression.args.get("unit")
         unit = unit.name.upper() if unit else "DAY"
