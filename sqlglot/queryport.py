@@ -123,6 +123,15 @@ def strict_transpile(sql: str, *, read: str, profile: Profile) -> StaticConversi
     if not source or any(tree is None for tree in source):
         raise UnsupportedFabricFeature("Empty or incomplete SQL parse")
 
+    if read.lower() == "oracle" and any(
+        isinstance(node, exp.Literal) and node.is_string and node.this == ""
+        for tree in source if tree is not None for node in tree.walk()
+    ):
+        raise UnsupportedFabricFeature(
+            "ORACLE_EMPTY_STRING_NULL_SEMANTICS: Oracle treats zero-length strings as NULL; "
+            "the target engine does not. An explicit semantic rewrite is required."
+        )
+
     output: list[str] = []
     for tree in source:
         if tree.find(exp.Command) or isinstance(tree, exp.Command):
