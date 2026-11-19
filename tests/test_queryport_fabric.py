@@ -94,6 +94,17 @@ class TestFabricCapabilities(unittest.TestCase):
         self.assertEqual(len(result.sql), 1)
         self.assertFalse(result.semantic_equivalence_proven)
 
+    def test_oracle_empty_string_is_a_semantic_blocker(self):
+        for sql in (
+            "SELECT '' AS payload FROM dual",
+            "SELECT CASE WHEN name = '' THEN 1 ELSE 0 END FROM t",
+            "SELECT COALESCE('', 'fallback') AS x FROM dual",
+        ):
+            with self.subTest(sql=sql), self.assertRaisesRegex(
+                UnsupportedFabricFeature, "ORACLE_EMPTY_STRING_NULL_SEMANTICS"
+            ):
+                strict_transpile(sql, read="oracle", profile="fabric-warehouse")
+
     def test_invalid_profile_rejected(self):
         with self.assertRaises(ValueError):
             fabric_violations("SELECT 1", "sqlserver")
