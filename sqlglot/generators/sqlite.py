@@ -472,6 +472,77 @@ class SQLiteGenerator(generator.Generator):
 
         return sql
 
+    def left_sql(self, expression: exp.Left) -> str:
+        value, count = self.sql(expression, "this"), self.sql(expression, "expression")
+        if expression.args.get("negative_length_returns_empty"):
+            negative = "''"
+        else:
+            negative = f"SUBSTR({value}, 1, MAX(LENGTH({value}) + {count}, 0))"
+        return (
+            f"(CASE WHEN {value} IS NULL OR {count} IS NULL THEN NULL "
+            f"WHEN {count} >= 0 THEN SUBSTR({value}, 1, {count}) "
+            f"ELSE {negative} END)"
+        )
+
+    def right_sql(self, expression: exp.Right) -> str:
+        value, count = self.sql(expression, "this"), self.sql(expression, "expression")
+        if expression.args.get("negative_length_returns_empty"):
+            negative = "''"
+        else:
+            negative = f"SUBSTR({value}, 1 - {count})"
+        return (
+            f"(CASE WHEN {value} IS NULL OR {count} IS NULL THEN NULL "
+            f"WHEN {count} = 0 THEN '' "
+            f"WHEN {count} > 0 THEN SUBSTR({value}, -{count}) "
+            f"ELSE {negative} END)"
+        )
+
+    def startswith_sql(self, expression: exp.StartsWith) -> str:
+        value, prefix = self.sql(expression, "this"), self.sql(expression, "expression")
+        return f"(SUBSTR({value}, 1, LENGTH({prefix})) = {prefix})"
+
+    def endswith_sql(self, expression: exp.EndsWith) -> str:
+        value, suffix = self.sql(expression, "this"), self.sql(expression, "expression")
+        return (
+            f"(CASE WHEN {value} IS NULL OR {suffix} IS NULL THEN NULL "
+            f"WHEN LENGTH({suffix}) = 0 THEN 1 "
+            f"ELSE SUBSTR({value}, -LENGTH({suffix})) = {suffix} END)"
+        )
+
+    def lastday_sql(self, expression: exp.LastDay) -> str:
+        unit = expression.args.get("unit")
+        if unit and unit.name.upper() != "MONTH":
+            self.unsupported("SQLite LAST_DAY supports only calendar months")
+            return self.func("LAST_DAY", expression.this)
+        return f"DATE({self.sql(expression, 'this')}, 'start of month', '+1 month', '-1 day')"
+
+    def concatws_sql(self, expression: exp.ConcatWs) -> str:
+        # SQLite 3.44..3.50.1 CONCAT_WS skipped empty strings, whereas DuckDB
+        # and the SQL standard's skip-NULL behavior retain empty fields.
+        # Construct the separator only between non-NULL *positions*.
+        args = expression.expressions
+        if len(args) < 2:
+            self.unsupported("CONCAT_WS needs a separator and at least one value")
+            return super().concatws_sql(expression)
+        sep = self.sql(args[0])
+        values = [self.sql(value) for value in args[1:]]
+        pieces = []
+        prior = []
+        for value in values:
+            separator = (
+                "''" if not prior
+                else f"(CASE WHEN ({' OR '.join(f'{p} IS NOT NULL' for p in prior)}) "
+                f"THEN {sep} ELSE '' END)"
+            )
+            pieces.append(
+                f"(CASE WHEN {value} IS NULL THEN '' ELSE {separator} || {value} END)"
+            )
+            prior.append(value)
+        condition = f"{sep} IS NULL"
+        if not expression.args.get("coalesce"):
+            condition += " OR " + " OR ".join(f"{value} IS NULL" for value in values)
+        return f"(CASE WHEN {condition} THEN NULL ELSE ({' || '.join(pieces)}) END)"
+
     def extract_sql(self, expression: exp.Extract) -> str:
         unit = expression.this.name.upper()
         value = self.sql(expression, "expression")
@@ -490,6 +561,15 @@ class SQLiteGenerator(generator.Generator):
         }
         if unit in mapping:
             return f"CAST(STRFTIME('{mapping[unit]}', {value}) AS INTEGER)"
+        if unit == "ISODOW":
+            weekday = f"CAST(STRFTIME('%w', {value}) AS INTEGER)"
+            return f"((({weekday} + 6) % 7) + 1)"
+        if unit in ("WEEK", "ISOYEAR"):
+            thursday = f"DATE({value}, '-3 days', 'weekday 4')"
+            if unit == "ISOYEAR":
+                return f"CAST(STRFTIME('%Y', {thursday}) AS INTEGER)"
+            day = f"CAST(STRFTIME('%j', {thursday}) AS INTEGER)"
+            return f"(CAST(({day} - 1) / 7 AS INTEGER) + 1)"
         if unit == "QUARTER":
             month = f"CAST(STRFTIME('%m', {value}) AS INTEGER)"
             return f"CAST(({month} + 2) / 3 AS INTEGER)"
