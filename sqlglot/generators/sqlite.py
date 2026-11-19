@@ -489,11 +489,11 @@ class SQLiteGenerator(generator.Generator):
         if expression.args.get("negative_length_returns_empty"):
             negative = "''"
         else:
-            negative = f"SUBSTR({value}, 1 - {count})"
+            negative = f"SUBSTR({value}, 1 - ({count}))"
         return (
             f"(CASE WHEN {value} IS NULL OR {count} IS NULL THEN NULL "
             f"WHEN {count} = 0 THEN '' "
-            f"WHEN {count} > 0 THEN SUBSTR({value}, -{count}) "
+            f"WHEN {count} > 0 THEN SUBSTR({value}, -({count})) "
             f"ELSE {negative} END)"
         )
 
