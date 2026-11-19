@@ -123,6 +123,8 @@ def evaluate(case, duck, sqlite):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--require-equal", action="store_true",
+                        help="Exit nonzero if any source/target result differs")
     args = parser.parse_args()
     rows = _fixtures()
     with duckdb.connect(":memory:") as duck, sqlite3.connect(":memory:") as sqlite:
@@ -150,6 +152,8 @@ def main():
     if args.output:
         args.output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n",
                                encoding="utf-8")
+    if args.require_equal and passed != len(cases):
+        raise SystemExit(f"Live DuckDB/SQLite semantic regressions: {len(cases) - passed}")
 
 
 if __name__ == "__main__":
