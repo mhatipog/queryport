@@ -3,24 +3,24 @@
 Independent, stdlib-only executable tests for SQLGlot's SQLite transpilation, using
 the same SQLGlot commit as the OCI validation workflow.
 
-\`\`\`bash
-python3 research/sqlite_semantic_audit.py
-\`\`\`
+```bash
+PYTHONPATH=. python3 research/sqlite_semantic_audit.py
+```
 
 The tests cover:
 
 - MySQL / PostgreSQL / BigQuery unbounded random functions → SQLite
-- Preservation of native SQLite's signed integer \`RANDOM()\`
+- Preservation of native SQLite's signed integer `RANDOM()`
 - Five exact signed 64-bit boundary values
 - 50,000 seeded pseudo-random values (range, mean, 10-bin chi-square)
 - 1,000 randomly generated date pairs compared to Python's datetime arithmetic
 - Leap years, year boundaries, negative day differences, and NULL values
-- One \`unittest.expectedFailure\` marking upstream's unresolved issue
+- One `unittest.expectedFailure` marking upstream's unresolved issue
   [#9259](https://github.com/tobymao/sqlglot/issues/9259)
 
 ## Why this is a research branch, not an upstream PR
 
-The source-level fix for SQLite \`RAND\` semantics was already implemented and
+The source-level fix for SQLite `RAND` semantics was already implemented and
 merged by a SQLGlot maintainer in
 [commit 1055c0a](https://github.com/tobymao/sqlglot/commit/1055c0a657cb5d260f32d43678cfeddc569a91ee).
 
@@ -41,9 +41,9 @@ https://github.com/tobymao/sqlglot/pull/9262
 
 ## OCI verification
 
-CI controller repository: private \`mhatipog/web-operations\`, workflow:
-\`.github/workflows/sqlglot-oci-validation.yml\`. It checks out a pinned SHA
-and runs on the existing self-hosted \`vecture\` OCI ARM64 runner, with no
+CI controller repository: private `mhatipog/web-operations`, workflow:
+`.github/workflows/sqlglot-oci-validation.yml`. It checks out a pinned SHA
+and runs on the existing self-hosted `vecture` OCI ARM64 runner, with no
 artifact uploads or paid hosted runners.
 
 Successful pre-branch baseline run:
