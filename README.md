@@ -5,6 +5,7 @@
 QueryPort is a public, experimental fork of [SQLGlot](https://github.com/tobymao/sqlglot), focused on rigorous SQL parsing, cross-dialect transpilation and verifiable behavior, with special emphasis on **Oracle SQL and PL/SQL, Apache Spark SQL, and Microsoft Fabric Warehouse / Lakehouse T-SQL**.
 
 - [QueryPort engineering plan, target profiles and quality gates](docs/QUERYPORT_ENGINEERING.md)
+- [Executable legacy SQLGlot vs QueryPort differential scoreboard](docs/DIFFERENTIAL_SCOREBOARD.md)
 - [38-case portability corpus](research/portability_cases.json) and [diagnostic runner](research/portability_probe.py)
 - [SQLite semantic regression research](research/SQLITE_SEMANTIC_AUDIT.md)
 - [Continuous validation on the existing free OCI ARM64 runner](https://github.com/mhatipog/web-operations/actions/workflows/sqlglot-oci-validation.yml)
