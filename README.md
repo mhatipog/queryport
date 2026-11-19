@@ -6,6 +6,8 @@ QueryPort is a public, experimental fork of [SQLGlot](https://github.com/tobymao
 
 - [QueryPort engineering plan, target profiles and quality gates](docs/QUERYPORT_ENGINEERING.md)
 - [Executable legacy SQLGlot vs QueryPort differential scoreboard](docs/DIFFERENTIAL_SCOREBOARD.md)
+- [Cross-type DuckDB/SQLite semantic discovery](docs/CROSS_TYPE_LIVE_DISCOVERY.md)
+- [Verified bug backlog and reproducible acceptance tests](docs/VERIFIED_SEMANTIC_BACKLOG.md)
 - [38-case portability corpus](research/portability_cases.json) and [diagnostic runner](research/portability_probe.py)
 - [SQLite semantic regression research](research/SQLITE_SEMANTIC_AUDIT.md)
 - [Continuous validation on the existing free OCI ARM64 runner](https://github.com/mhatipog/web-operations/actions/workflows/sqlglot-oci-validation.yml)
