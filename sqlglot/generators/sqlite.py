@@ -285,7 +285,11 @@ class SQLiteGenerator(generator.Generator):
         return super().attimezone_sql(expression)
 
     def _month_shift_sql(
-        self, base: exp.Expr, month_count: exp.Expr | str, preserve_end_of_month: bool = False
+        self,
+        base: exp.Expr,
+        month_count: exp.Expr | str,
+        preserve_end_of_month: bool = False,
+        preserve_time: bool = True,
     ) -> str:
         """Add calendar months without SQLite's default overflowing-day behavior.
 
@@ -308,6 +312,8 @@ class SQLiteGenerator(generator.Generator):
             )
 
         shifted = f"DATE({first}, ({day} - 1) || ' days')"
+        if not preserve_time:
+            return shifted
 
         # Preserve textual time-of-day for datetime inputs; don't accidentally
         # turn '2024-01-31 12:34:56' into a bare date at the month boundary.
@@ -322,6 +328,7 @@ class SQLiteGenerator(generator.Generator):
             expression.this,
             expression.expression,
             preserve_end_of_month=bool(expression.args.get("preserve_end_of_month")),
+            preserve_time=bool(expression.args.get("preserve_end_of_month")),
         )
 
     def dateadd_sql(self, expression: exp.DateAdd) -> str:
