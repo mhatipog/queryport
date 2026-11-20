@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 import sqlite3
+import random
 import unittest
 
 import duckdb
@@ -40,6 +41,13 @@ class TestDuckDBToSQLiteOptIn(unittest.TestCase):
             (6, None, None),
             (7, "2024-01-01", "longer-than-eight"),
         ]
+        rng = random.Random(20261120)
+        alphabet = ("a", "é", "ß", "💾", "e\\u0301", "0", " ", "'", "あ", "\\n")
+        for k in range(500):
+            date = dt.date(1901, 1, 1) + dt.timedelta(days=rng.randrange(0, 60000))
+            size = rng.randrange(0, 18)
+            word = "".join(rng.choice(alphabet) for _ in range(size))
+            cls.rows.append((k + 8, date.isoformat(), word))
         cls.duck.executemany("INSERT INTO t VALUES (?, ?, ?)", cls.rows)
         cls.sqlite.executemany("INSERT INTO t VALUES (?, ?, ?)", cls.rows)
 
@@ -79,6 +87,9 @@ class TestDuckDBToSQLiteOptIn(unittest.TestCase):
             "LPAD(s, 1, 'x')",
             "RPAD(s, 8, 'y')",
             "LPAD(s, 0, 'z')",
+            "LPAD(s, 14, 'é')",
+            "RPAD(s, 14, '💾')",
+            "LPAD(s, 7, ' ')",
             "RPAD(s, 0, 'z')",
             "LPAD('abc', 6, '-')",
             "RPAD('café', 6, '*')",
@@ -107,7 +118,7 @@ class TestDuckDBToSQLiteOptIn(unittest.TestCase):
         self.assertEqual(result.rewritten_padding, 0)
         self.assertEqual(
             [r[0] for r in self.sqlite.execute(result.sql[0])],
-            [r[0] for r in self.duck.execute("SELECT id - 3 FROM t")],
+            [r[0] for r in self.duck.execute("SELECT id - 3 FROM t").fetchall()],
         )
 
     def test_unchecked_mode_reports_unhandled_function(self):
