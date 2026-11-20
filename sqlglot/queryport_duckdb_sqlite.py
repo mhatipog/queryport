@@ -144,6 +144,12 @@ def port_duckdb_to_sqlite(
             if _duckdb_date_plus_interval(node, schema):
                 date_count += 1
                 return exp.Anonymous(this="DATETIME", expressions=[node.copy()])
+            # A DATE_ADD with no trustworthy base type can silently lose the
+            # DuckDB TIMESTAMP return contract. Do not present that as safe.
+            if isinstance(node, exp.DateAdd) and isinstance(node.expression, exp.Interval):
+                base = node.this
+                if not base.is_type(*exp.DataType.TEMPORAL_TYPES):
+                    unresolved.append("DATE_ADD: untyped temporal base; supply trusted source schema")
             if isinstance(node, (exp.Reverse, exp.RegexpReplace, exp.SplitPart)):
                 unresolved.append(f"{type(node).__name__}: stock SQLite has no verified equivalent")
             return node
