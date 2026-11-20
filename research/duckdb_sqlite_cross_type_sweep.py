@@ -101,7 +101,7 @@ def equivalent(a, b):
     return a == b
 
 
-def evaluate(name: str, category: str, expression: str, duck, sqlite, rows):
+def evaluate(name: str, category: str, expression: str, duck, sqlite, rows, *, opt_in=False):
     sql = f"SELECT {expression} AS result FROM t ORDER BY id"
     record = {
         "id": name, "category": category, "expression": expression,
@@ -117,9 +117,24 @@ def evaluate(name: str, category: str, expression: str, duck, sqlite, rows):
         record["error"] = type(exc).__name__ + ": " + str(exc)[:500]
         return record
     try:
-        generated = parse_one(sql, read="duckdb").sql(
-            "sqlite", unsupported_level=ErrorLevel.RAISE
-        )
+        if opt_in:
+            from sqlglot.queryport_duckdb_sqlite import port_duckdb_to_sqlite
+            port = port_duckdb_to_sqlite(
+                sql, schema={"t": {
+                    "id": "INTEGER", "d": "DATE", "n": "INTEGER",
+                    "x": "DOUBLE", "y": "DOUBLE", "s": "VARCHAR", "s2": "VARCHAR",
+                }}, strict=False,
+            )
+            generated = port.sql[0]
+            record["port_diagnostics"] = {
+                "date_timestamp_rewrites": port.rewritten_date_timestamp,
+                "padding_rewrites": port.rewritten_padding,
+                "unresolved": list(port.unresolved),
+            }
+        else:
+            generated = parse_one(sql, read="duckdb").sql(
+                "sqlite", unsupported_level=ErrorLevel.RAISE
+            )
         record["target_sql"] = generated
     except Exception as exc:
         record["status"] = "conversion_error"
@@ -160,6 +175,10 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--output", type=Path)
     p.add_argument("--strict", action="store_true", help="Fail if any comparable case mismatches")
+    p.add_argument("--opt-in", action="store_true",
+                   help="Apply QueryPort's source-typed DuckDB SQLite portability transforms")
+    p.add_argument("--min-equivalent", type=int,
+                   help="Fail if fewer than this many real-source/target cases match")
     p.add_argument("--require-ids", default="",
                    help="Comma-separated case IDs that must execute equivalently")
 
@@ -171,7 +190,8 @@ def main():
         duck.executemany("INSERT INTO t VALUES (?, ?, ?, ?, ?, ?, ?)", rows)
         sqlite.executemany("INSERT INTO t VALUES (?, ?, ?, ?, ?, ?, ?)", rows)
         results = [
-            evaluate(f"{category}_{index:02d}", category, expr, duck, sqlite, rows)
+            evaluate(f"{category}_{index:02d}", category, expr, duck, sqlite, rows,
+                     opt_in=args.opt_in)
             for category, expressions in EXPRS.items()
             for index, expr in enumerate(expressions, 1)
         ]
@@ -180,6 +200,7 @@ def main():
         "kind": "live_duckdb_sqlite_cross_type",
         "source_engine": f"DuckDB {duckdb.__version__}",
         "target_engine": f"SQLite {sqlite3.sqlite_version}",
+        "opt_in": args.opt_in,
         "fixture_rows": len(rows), "expression_cases": len(results),
         "status_counts": counts, "cases": results,
         "limitations": "No cross-engine type equality, time zones, collations, statement side-effects or SQL error equivalence claims",
@@ -202,6 +223,10 @@ def main():
                 f"Required semantic equivalence cases failed: missing={sorted(missing)}, "
                 f"mismatched={failing}"
             )
+    if args.min_equivalent is not None and counts.get("equivalent", 0) < args.min_equivalent:
+        raise SystemExit(
+            f"Expected at least {args.min_equivalent} equivalent cases; got {counts.get('equivalent', 0)}"
+        )
     if args.strict and any(row["status"] != "equivalent" for row in results):
         raise SystemExit("Cross-type live-engine conversion failures present")
 
