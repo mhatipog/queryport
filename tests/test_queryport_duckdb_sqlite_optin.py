@@ -97,6 +97,15 @@ class TestDuckDBToSQLiteOptIn(unittest.TestCase):
             with self.subTest(expr=expr):
                 self.check_equivalent(expr, expected_pad=1)
 
+    def test_date_add_without_schema_is_diagnosed_not_claimed_safe(self):
+        source = "SELECT DATE_ADD(d, INTERVAL 1 MONTH) FROM t"
+        with self.assertRaises(UnsafeDuckDBPort):
+            port_duckdb_to_sqlite(source)
+        unchecked = port_duckdb_to_sqlite(source, strict=False)
+        self.assertEqual(unchecked.rewritten_date_timestamp, 0)
+        self.assertTrue(any("DATE_ADD" in issue for issue in unchecked.unresolved))
+        self.assertFalse(unchecked.semantic_equivalence_proven)
+
     def test_unknown_types_or_pads_are_not_silently_rewritten(self):
         for expr, schema in (
             ("LPAD(s, 5, '_')", None),
