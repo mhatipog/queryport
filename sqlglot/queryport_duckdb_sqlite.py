@@ -108,7 +108,15 @@ def _bankers_int_cast_sql(
     if not isinstance(source, exp.Column):
         return None, None
     from sqlglot.queryport_port import _single_table_schema_type
-    if _single_table_schema_type(source, schema) != "DOUBLE":
+    from_type = _single_table_schema_type(source, schema)
+    if from_type != "DOUBLE":
+        if from_type is None:
+            return None, "CAST(column AS INTEGER): unknown source type; supply trusted schema"
+        if (
+            from_type in ("FLOAT", "REAL", "STRING", "VARCHAR", "CHAR", "TEXT")
+            or from_type.startswith(("DECIMAL", "NUMERIC"))
+        ):
+            return None, f"CAST({from_type} AS INTEGER): different or unverified casting semantics"
         return None, None
     interval = bounds.get(source.name) if bounds is not None else None
     if (
