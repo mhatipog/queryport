@@ -123,7 +123,7 @@ def evaluate(name: str, category: str, expression: str, duck, sqlite, rows, *, o
                 sql, schema={"t": {
                     "id": "INTEGER", "d": "DATE", "n": "INTEGER",
                     "x": "DOUBLE", "y": "DOUBLE", "s": "VARCHAR", "s2": "VARCHAR",
-                }}, strict=False,
+                }}, float_bounds={"x": (-1500, 1500)}, strict=False,
             )
             generated = port.sql[0]
             record["port_diagnostics"] = {
