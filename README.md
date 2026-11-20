@@ -8,6 +8,9 @@ QueryPort is a public, experimental fork of [SQLGlot](https://github.com/tobymao
 - [Executable legacy SQLGlot vs QueryPort differential scoreboard](docs/DIFFERENTIAL_SCOREBOARD.md)
 - [Cross-type DuckDB/SQLite semantic discovery](docs/CROSS_TYPE_LIVE_DISCOVERY.md)
 - [Verified bug backlog and reproducible acceptance tests](docs/VERIFIED_SEMANTIC_BACKLOG.md)
+- [Opt-in DuckDB → stock SQLite calendar and padding fixes](docs/DUCKDB_SQLITE_OPTIN.md)
+- [Bounded DuckDB DOUBLE→INTEGER ties-even casts](docs/DUCKDB_INT_CAST_PORT.md)
+- [Measured 58-case live semantic comparisons](research/duckdb_sqlite_cross_type_sweep.py) — **53/58 equivalent with verified opt-in rewrites**, versus **48/58 without** ([OCI verification](https://github.com/mhatipog/web-operations/actions/runs/44683391128)); this benchmark is deliberately hard and not a general coverage claim
 - [38-case portability corpus](research/portability_cases.json) and [diagnostic runner](research/portability_probe.py)
 - [SQLite semantic regression research](research/SQLITE_SEMANTIC_AUDIT.md)
 - [Continuous validation on the existing free OCI ARM64 runner](https://github.com/mhatipog/web-operations/actions/workflows/sqlglot-oci-validation.yml)
