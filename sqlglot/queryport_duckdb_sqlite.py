@@ -8,6 +8,7 @@ silently described as semantically equivalent.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Any
 
 from sqlglot import exp, parse
@@ -25,6 +26,7 @@ class DuckDBPortResult:
     sql: tuple[str, ...]
     rewritten_date_timestamp: int = 0
     rewritten_padding: int = 0
+    rewritten_float_to_int: int = 0
     unresolved: tuple[str, ...] = ()
     source_engine_executed: bool = False
     target_engine_executed: bool = False
@@ -87,6 +89,58 @@ def _pad_sqlite(node: exp.Pad, schema: dict[str, Any] | None) -> str | None:
     )
 
 
+def _bankers_int_cast_sql(
+    expression: exp.Cast,
+    schema: dict[str, Any] | None,
+    bounds: dict[str, tuple[float, float]] | None,
+) -> tuple[str | None, str | None]:
+    """SQLite truncates double -> INT; DuckDB rounds to nearest, ties even.
+
+    The rewrite only applies to one-table DOUBLE columns with a trusted
+    finite input range that is guaranteed to fit DuckDB's signed INT32.
+    Decimal, FLOAT32, dynamic expressions, unbounded inputs, overflow and
+    TRY_CAST are intentionally excluded. Column expressions are stable under
+    repeated evaluation in the generated scalar CASE.
+    """
+    if type(expression) is not exp.Cast or not expression.is_type(exp.DType.INT):
+        return None, None
+    source = expression.this
+    if not isinstance(source, exp.Column):
+        return None, None
+    from sqlglot.queryport_port import _single_table_schema_type
+    from_type = _single_table_schema_type(source, schema)
+    if from_type != "DOUBLE":
+        if from_type is None:
+            return None, "CAST(column AS INTEGER): unknown source type; supply trusted schema"
+        if (
+            from_type in ("FLOAT", "REAL", "STRING", "VARCHAR", "CHAR", "TEXT")
+            or from_type.startswith(("DECIMAL", "NUMERIC"))
+        ):
+            return None, f"CAST({from_type} AS INTEGER): different or unverified casting semantics"
+        return None, None
+    interval = bounds.get(source.name) if bounds is not None else None
+    if (
+        interval is None or len(interval) != 2
+        or not all(isinstance(v, (int, float)) and math.isfinite(v) for v in interval)
+        or interval[0] > interval[1]
+        or interval[0] < -2147483648 or interval[1] > 2147483647
+    ):
+        return None, "CAST(DOUBLE AS INTEGER): supply trusted finite signed-INT32-safe column bounds"
+
+    x = source.sql("sqlite", unsupported_level=ErrorLevel.RAISE)
+    trunc = f"CAST({x} AS INTEGER)"
+    # SQLite ROUND() uses half-away-from-zero; handle *only* exact ties
+    # separately using the parity of the truncated integer.
+    tie = f"ABS({x}) - CAST(ABS({x}) AS INTEGER) = 0.5"
+    candidate = (
+        f"(CASE WHEN {tie} THEN "
+        f"(CASE WHEN ({trunc} % 2) = 0 THEN {trunc} "
+        f"ELSE {trunc} + (CASE WHEN {x} < 0 THEN -1 ELSE 1 END) END) "
+        f"ELSE ROUND({x}) END)"
+    )
+    return f"CAST({candidate} AS INTEGER)", None
+
+
 def _duckdb_date_plus_interval(node: exp.Expr, schema: dict[str, Any] | None) -> bool:
     """Recognize DuckDB DATE + an interval whose unit is explicit.
 
@@ -110,7 +164,9 @@ def _duckdb_date_plus_interval(node: exp.Expr, schema: dict[str, Any] | None) ->
 
 
 def port_duckdb_to_sqlite(
-    sql: str, *, schema: dict[str, Any] | None = None, strict: bool = True
+    sql: str, *, schema: dict[str, Any] | None = None,
+    float_bounds: dict[str, tuple[float, float]] | None = None,
+    strict: bool = True
 ) -> DuckDBPortResult:
     """Convert proven DuckDB scalar cases, leaving ordinary SQLGlot unchanged.
 
@@ -124,7 +180,7 @@ def port_duckdb_to_sqlite(
         raise UnsafeDuckDBPort("No complete source SQL statement")
     converted: list[str] = []
     unresolved: list[str] = []
-    pad_count = date_count = 0
+    pad_count = date_count = numeric_count = 0
 
     for tree in trees:
         if isinstance(tree, exp.Command) or tree.find(exp.Command):
@@ -133,7 +189,19 @@ def port_duckdb_to_sqlite(
             tree = annotate_types(tree, schema=schema, dialect="duckdb")
 
         def fix(node: exp.Expr) -> exp.Expr:
-            nonlocal pad_count, date_count
+            nonlocal pad_count, date_count, numeric_count
+            if type(node) is exp.Cast and node.is_type(exp.DType.INT):
+                replacement, warning = _bankers_int_cast_sql(
+                    node, schema, float_bounds
+                )
+                if warning:
+                    unresolved.append(warning)
+                    return node
+                if replacement:
+                    numeric_count += 1
+                    return exp.paren(parse(
+                        replacement, read="sqlite", error_level=ErrorLevel.RAISE
+                    )[0])
             if isinstance(node, exp.Pad):
                 rewritten = _pad_sqlite(node, schema)
                 if rewritten is None:
@@ -168,5 +236,6 @@ def port_duckdb_to_sqlite(
         sql=tuple(converted),
         rewritten_date_timestamp=date_count,
         rewritten_padding=pad_count,
+        rewritten_float_to_int=numeric_count,
         unresolved=tuple(dict.fromkeys(unresolved)),
     )
